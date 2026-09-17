@@ -8,5 +8,5 @@ API REST construida con Node.js y Express para la gestión de un catálogo de li
 
 ## 📚 Documentación
 
-* [Explicación del Proyecto y Arquitectura](file:///home/naciscric/Documentos/Backend/EXPLICACION_PROYECTO.md)
-* [Guía de Comandos con cURL](file:///home/naciscric/Documentos/Backend/GUIA_CURL.md)
+* [Explicación del Proyecto y Arquitectura](EXPLICACION_PROYECTO.md)
+* [Guía de Comandos con cURL](GUIA_CURL.md)
