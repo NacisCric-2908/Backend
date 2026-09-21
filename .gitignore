@@ -1,2 +1,2 @@
-catalogo-libros-api/node_modules
-catalogo-libros-api/.env
+**/node_modules
+**/.env
