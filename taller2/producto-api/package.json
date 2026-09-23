@@ -1,18 +1,21 @@
 {
-  "name": "producto-api",
+  "name": "cliente-api",
   "version": "1.0.0",
-  "description": "API de gestión de productos",
-  "main": "src/server.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon -L src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "commonjs",
   "dependencies": {
     "dotenv": "^18.0.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

@@ -1,0 +1,57 @@
+services:
+    cliente-api:
+        build:
+            context: ./cliente-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - ${CLIENTE_PORT}:3001
+        env_file:
+            - ./cliente-api/.env
+        volumes:
+            - ./cliente-api:/app
+            - /app/node_modules
+        depends_on:
+            - postgres # Espera a que la BD inicie
+    producto-api:
+        build:
+            context: ./producto-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - ${PRODUCTO_PORT}:3002
+        env_file:
+            - ./producto-api/.env
+        volumes:
+            - ./producto-api:/app
+            - /app/node_modules
+        depends_on:
+            - postgres # Espera a que la BD inicie
+    compra-api:
+        build:
+            context: ./compra-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - ${COMPRA_PORT}:3003
+        env_file:
+            - ./compra-api/.env
+        volumes:
+            - ./compra-api:/app
+            - /app/node_modules
+        depends_on:
+            - postgres
+    postgres:
+        image: postgres:17
+        container_name: postgres-db
+        environment:
+            - POSTGRES_USER=${DB_USER}
+            - POSTGRES_PASSWORD=${DB_PASSWORD}
+            - POSTGRES_DB=${DB_NAME}
+        ports:
+            - "5432:5432"
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+
+volumes:
+    pgdata:

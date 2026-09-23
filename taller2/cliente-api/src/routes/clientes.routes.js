@@ -1,39 +1,64 @@
 const express = require("express");
 const router = express.Router();
 const clientes = require("../data/clientes");
+const pool = require("../db");
 
-let siguienteId = 3;
-
-// GET /clientes
-router.get("/", (req, res) => {
-  res.status(200).json(clientes);
+// get /clientes
+router.get("/", async (req, res) => {
+    const resultado = await pool.query(
+        "SELECT * FROM cliente"
+    );
+    res.status(200).json(resultado.rows);
 });
 
-// GET /clientes/:id
-router.get("/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const cliente = clientes.find((cliente) => cliente.id === id);
+// get /clientes/:id
+router.get("/:id", async (req, res) => {
+    const id = Number(req.params.id);
+    try {
+        const resultado = await pool.query(
+            "SELECT * FROM cliente WHERE id_cliente = $1",
+            [id]
+        )
 
-  if (!cliente) {
-    return res.status(404).json({ mensaje: "Cliente no encontrado" });
-  }
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                error: "Usuario no encontrado"
+            })
+        }
 
-  res.status(200).json(cliente);
+        res.status(200).json(resultado.rows[0]);
+    }
+    catch{
+        console.error(error)
+        res.status(500).json({
+            error: "Error obteniendo usuario"
+        });
+    }
+
 });
 
 // POST /clientes
-router.post("/", (req, res) => {
-  const { nombre, email } = req.body;
+router.post("/", async (req, res) => {
+    const { id_cliente, nombre, email } = req.body;
 
-  if (!nombre || !email) {
-    return res
-      .status(400)
-      .json({ mensaje: "Los campos 'nombre' y 'email' son obligatorios" });
-  }
+    try {
+        const resultado = await pool.query(
+        `
+        INSERT INTO cliente (id_cliente, nombre, email)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        `,
+        [id_cliente, nombre, email]
+        );
 
-  const nuevoCliente = { id: siguienteId++, nombre, email };
-  clientes.push(nuevoCliente);
-  res.status(201).json(nuevoCliente);
+        res.status(201).json(resultado.rows[0]);
+    }
+    catch (error){
+        console.error(error)
+        res.status(500).json({
+            error: "Error creando cliente"
+        });
+    }
 });
 
 module.exports = router;
