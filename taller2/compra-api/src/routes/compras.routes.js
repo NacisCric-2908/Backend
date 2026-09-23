@@ -32,8 +32,8 @@ router.get("/:id", async (req, res) => {
 
         res.status(200).json(resultado.rows[0]);
     }
-    catch{
-        console.error(error)
+    catch (error) {
+        console.error(error);
         res.status(500).json({
             error: "Error obteniendo compra"
         });

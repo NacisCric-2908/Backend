@@ -1,0 +1,12 @@
+{
+  "name": "taller2",
+  "version": "1.0.0",
+  "description": "Sistema de microservicios Taller 2 - Cliente, Producto y Compra",
+  "scripts": {
+    "setup:db": "node setup-db.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.3"
+  }
+}
