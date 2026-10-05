@@ -1,0 +1,32 @@
+# Archivo: docker-compose.yml
+
+services:
+
+  # Servicio 1: la aplicación Node.js
+  web:
+    # Construye la imagen desde el Dockerfile en la carpeta actual
+    build: .
+    # Publica el puerto 3000 del contenedor en el puerto 3000 del host
+    ports:
+      - "3000:3000"
+    # Variables de entorno disponibles dentro del contenedor
+    environment:
+      - PORT=3000
+      - ENTORNO=local-compose
+    # Reinicia el contenedor si falla
+    restart: unless-stopped
+
+  # Servicio 2: proxy inverso con nginx
+  proxy:
+    # Usa la imagen oficial de nginx sin construir nada
+    image: nginx:alpine
+    # nginx escucha en el 80 interno, lo exponemos en el 8080 del host
+    ports:
+      - "8080:80"
+    # Monta el archivo de configuración de nginx desde el host al contenedor
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Este servicio depende de que 'web' esté levantado antes
+    depends_on:
+      - web
+    restart: unless-stopped

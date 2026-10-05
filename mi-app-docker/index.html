@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mi app en Docker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #2c3e50, #1a252f);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 48px 40px;
+      max-width: 540px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: #e8f4fd;
+      color: #1565c0;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 26px; color: #2c3e50; margin-bottom: 12px; }
+    p  { font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 24px; }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .info-item { background: #f5f9ff; border-radius: 8px; padding: 12px 10px; }
+    .info-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .info-value { font-size: 14px; font-weight: 600; color: #2c3e50; }
+    .status {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: #eaf3de; color: #3b6d11;
+      font-size: 13px; font-weight: 600;
+      padding: 8px 18px; border-radius: 20px; margin-bottom: 16px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #3b6d11; }
+    footer { font-size: 12px; color: #aaa; border-top: 1px solid #eee; padding-top: 14px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">🐳 Corriendo en Docker</div>
+    <h1>¡App Node.js en contenedor!</h1>
+    <p>Esta aplicación está empaquetada en un contenedor Docker. El sistema operativo, el runtime y las dependencias están aislados de tu máquina.</p>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Tecnología</div>
+        <div class="info-value">Node.js</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Entorno</div>
+        <div class="info-value">Docker</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Puerto interno</div>
+        <div class="info-value">3000</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Aislamiento</div>
+        <div class="info-value">Contenedor</div>
+      </div>
+    </div>
+    <div class="status"><span class="dot"></span>Contenedor activo</div>
+    <footer>Computación en la nube · Introducción a Docker</footer>
+  </div>
+</body>
+</html>
