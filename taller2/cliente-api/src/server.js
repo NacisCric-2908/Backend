@@ -1,31 +1,25 @@
-require("dotenv").config();
-const express = require("express");
-const clientesRoutes = require("./routes/clientes.routes");
-const pool = require("./db");
+require('dotenv').config();
+const app = require('./app');
+const sequelize = require('./config/database');
+require('./models/cliente');
 
-const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(express.json())
-app.use("/clientes", clientesRoutes);
+async function iniciar() {
+  try {
+    await sequelize.authenticate();
+    console.log('Conexión a la base de datos establecida en cliente-api.');
 
-app.get("/", async (req, res) => {
-    try {
-        const resultado = await pool.query("SELECT NOW()");
+    await sequelize.sync({ alter: true });
+    console.log('Modelos sincronizados con la base de datos.');
 
-        res.status(200).json({
-            mensaje: "Conexion exitosa, cliente-api activa",
-            fechaPostgres: resultado.rows[0]
-        });
-    }
-    catch (error){
-        console.error(error);
-        res.status(500).json({
-            error: "Error conectando con PostgreSQL"
-        })
-    }
-});
+    app.listen(PORT, () => {
+      console.log(`Cliente-api escuchando en el puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Error al iniciar cliente-api:', error.message);
+    process.exit(1);
+  }
+}
 
-app.listen(PORT, () => {
-    console.log(`Cliente-api escuchando en el puerto ${PORT}`);
-});
+iniciar();

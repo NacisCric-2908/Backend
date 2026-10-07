@@ -1,31 +1,25 @@
-require("dotenv").config();
-const express = require("express");
-const comprasRoutes = require("./routes/compras.routes");
-const pool = require("./db")
+require('dotenv').config();
+const app = require('./app');
+const sequelize = require('./config/database');
+require('./models/compra');
 
-const app = express();
 const PORT = process.env.PORT || 3003;
 
-app.use(express.json())
-app.use("/compras", comprasRoutes);
+async function iniciar() {
+  try {
+    await sequelize.authenticate();
+    console.log('Conexión a la base de datos establecida en compra-api.');
 
-app.get("/", async (req, res) => {
-    try {
-        const resultado = await pool.query("SELECT NOW()");
+    await sequelize.sync({ alter: true });
+    console.log('Modelos sincronizados con la base de datos.');
 
-        res.status(200).json({
-            mensaje: "Conexion exitosa, compra-api activa",
-            fechaPostgres: resultado.rows[0]
-        });
-    }
-    catch (error){
-        console.error(error);
-        res.status(500).json({
-            error: "Error conectando con PostgreSQL"
-        })
-    }
-});
+    app.listen(PORT, () => {
+      console.log(`Compra-api escuchando en el puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Error al iniciar compra-api:', error.message);
+    process.exit(1);
+  }
+}
 
-app.listen(PORT, () => {
-    console.log(`Compra-api escuchando en el puerto ${PORT}`);
-});
+iniciar();
