@@ -1,0 +1,17 @@
+const express = require('express');
+const router = express.Router();
+const {
+  obtenerTodos,
+  obtenerUno,
+  crear,
+  actualizar,
+  eliminar,
+} = require('../controllers/juegoController');
+
+router.get('/',         obtenerTodos);
+router.get('/:id',      obtenerUno);
+router.post('/',        crear);
+router.put('/:id',      actualizar);
+router.delete('/:id',   eliminar);
+
+module.exports = router;

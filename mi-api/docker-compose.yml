@@ -1,0 +1,37 @@
+services:
+
+  # Servicio 1: la API de Node.js
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db          # nombre del servicio de base de datos
+      - DB_PORT=5432
+      - DB_NAME=videojuegos_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
+      - PORT=3000
+    depends_on:
+      db:
+        condition: service_healthy  # espera a que PostgreSQL esté listo
+    restart: unless-stopped
+
+  # Servicio 2: PostgreSQL
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=videojuegos_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # los datos persisten aunque el contenedor se reinicie
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:  # volumen nombrado gestionado por Docker
