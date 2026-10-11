@@ -16,7 +16,7 @@ services:
             - DB_PASSWORD=${DB_PASSWORD:-postgres}
             - PORT=3001
         volumes:
-            - ./cliente-api:/app
+            - ./cliente-api:/app:Z
             - /app/node_modules
         depends_on:
             postgres:
@@ -40,7 +40,7 @@ services:
             - DB_PASSWORD=${DB_PASSWORD:-postgres}
             - PORT=3002
         volumes:
-            - ./producto-api:/app
+            - ./producto-api:/app:Z
             - /app/node_modules
         depends_on:
             postgres:
@@ -66,7 +66,7 @@ services:
             - PRODUCTO_API_URL=http://producto-api:3002
             - PORT=3003
         volumes:
-            - ./compra-api:/app
+            - ./compra-api:/app:Z
             - /app/node_modules
         depends_on:
             postgres:
@@ -84,7 +84,7 @@ services:
             - "5432:5432"
         volumes:
             - pgdata:/var/lib/postgresql/data
-            - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+            - ./init.sql:/docker-entrypoint-initdb.d/init.sql:Z
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-taller2_db}"]
             interval: 5s

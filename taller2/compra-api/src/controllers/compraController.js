@@ -1,6 +1,6 @@
 const Compra = require('../models/compra');
 const { obtenerCliente } = require('../services/clienteService');
-const { obtenerProducto } = require('../services/productoService');
+const { obtenerProducto, ajustarStock } = require('../services/productoService');
 
 // GET /compras — obtener todas las compras
 const obtenerTodos = async (req, res) => {
@@ -71,12 +71,28 @@ const crear = async (req, res) => {
     return res.status(400).json(`Stock insuficiente. Disponible ${producto.stock}, solicitado ${cantidad}`);
   }
 
+  // El total se calcula con el precio del producto al momento de la compra.
+  const total = Number(producto.precio) * Number(cantidad);
+
+  try {
+    // Se descuenta el stock antes de registrar la compra: así nunca queda
+    // una compra registrada con stock que en realidad no se reservó.
+    await ajustarStock(productoId, -Number(cantidad));
+  } catch (error) {
+    console.error(error);
+    return res.status(503).json({
+      mensaje: 'No se pudo descontar el stock del producto',
+      detalle: error.message,
+    });
+  }
+
   try {
     const payload = {
       id_cliente: Number(clienteId),
       id_producto: Number(productoId),
-      fecha,
       cantidad: Number(cantidad),
+      total,
+      fecha,
     };
 
     if (id_compra !== undefined && id_compra !== null) {
@@ -86,6 +102,13 @@ const crear = async (req, res) => {
     const nuevaCompra = await Compra.create(payload);
     res.status(201).json(nuevaCompra);
   } catch (error) {
+    // Si falla el registro de la compra, se revierte el descuento de stock
+    // para no dejar el producto con menos unidades de las reales.
+    try {
+      await ajustarStock(productoId, Number(cantidad));
+    } catch (rollbackError) {
+      console.error('No se pudo revertir el stock tras un error al crear la compra:', rollbackError.message);
+    }
     res.status(500).json({ error: 'Error registrando compra', detalle: error.message });
   }
 };
@@ -111,7 +134,11 @@ const actualizar = async (req, res) => {
       return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' });
     }
 
-    // Validar con servicios si cambiaron o se actualizaron
+    const cambiaProducto = productoId !== undefined && nuevoProductoId !== compra.id_producto;
+    const cambiaCantidad = cantidad !== undefined && nuevaCantidad !== compra.cantidad;
+
+    let nuevoTotal = Number(compra.total);
+
     try {
       if (clienteId !== undefined) {
         const cliente = await obtenerCliente(nuevoClienteId);
@@ -120,16 +147,38 @@ const actualizar = async (req, res) => {
         }
       }
 
-      if (productoId !== undefined || cantidad !== undefined) {
+      if (cambiaProducto) {
+        // Cambia de producto: se valida el nuevo, se reserva su stock
+        // y se devuelve el stock reservado en el producto anterior.
+        const nuevoProducto = await obtenerProducto(nuevoProductoId);
+        if (!nuevoProducto) {
+          return res.status(404).json({ mensaje: `El producto ${nuevoProductoId} no existe` });
+        }
+        if (nuevoProducto.stock < nuevaCantidad) {
+          return res.status(400).json(`Stock insuficiente. Disponible ${nuevoProducto.stock}, solicitado ${nuevaCantidad}`);
+        }
+
+        await ajustarStock(nuevoProductoId, -nuevaCantidad);
+        await ajustarStock(compra.id_producto, Number(compra.cantidad));
+
+        nuevoTotal = Number(nuevoProducto.precio) * nuevaCantidad;
+      } else if (cambiaCantidad) {
+        // Mismo producto, cambia la cantidad: solo se ajusta la diferencia.
         const producto = await obtenerProducto(nuevoProductoId);
         if (!producto) {
           return res.status(404).json({ mensaje: `El producto ${nuevoProductoId} no existe` });
         }
-        if (producto.stock < nuevaCantidad) {
-          return res.status(400).json(`Stock insuficiente. Disponible ${producto.stock}, solicitado ${nuevaCantidad}`);
+
+        const delta = nuevaCantidad - Number(compra.cantidad);
+        if (delta > 0 && producto.stock < delta) {
+          return res.status(400).json(`Stock insuficiente. Disponible ${producto.stock}, solicitado ${delta}`);
         }
+
+        await ajustarStock(nuevoProductoId, -delta);
+        nuevoTotal = Number(producto.precio) * nuevaCantidad;
       }
     } catch (error) {
+      console.error(error);
       return res.status(503).json({
         mensaje: 'No se pudo validar la compra porque uno de los servicios no respondio',
         detalle: error.message,
@@ -140,6 +189,7 @@ const actualizar = async (req, res) => {
       id_cliente: nuevoClienteId,
       id_producto: nuevoProductoId,
       cantidad: nuevaCantidad,
+      total: nuevoTotal,
       fecha: fecha !== undefined ? fecha : compra.fecha,
     });
 
@@ -155,6 +205,18 @@ const eliminar = async (req, res) => {
     const compra = await Compra.findByPk(req.params.id);
     if (!compra) {
       return res.status(404).json({ error: 'Compra no encontrada' });
+    }
+
+    try {
+      // Se devuelve el stock reservado antes de eliminar el registro: si la
+      // devolución falla, la compra no se borra y el estado queda consistente.
+      await ajustarStock(compra.id_producto, Number(compra.cantidad));
+    } catch (error) {
+      console.error(error);
+      return res.status(503).json({
+        mensaje: 'No se pudo devolver el stock del producto',
+        detalle: error.message,
+      });
     }
 
     await compra.destroy();

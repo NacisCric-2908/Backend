@@ -8,9 +8,7 @@ RUN npm install
 
 COPY . .
 
-ENV CLIENTE_API_URL=http://localhost:3001
-
-ENV PRODUCTO_API_URL=http://localhost:3002
+ENV NODE_ENV=development
 
 EXPOSE 3003
 

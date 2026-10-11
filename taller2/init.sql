@@ -18,12 +18,16 @@ CREATE TABLE IF NOT EXISTS producto (
 );
 
 -- 3. Tabla: compra
+-- El orden de columnas es el mismo que usan los modelos de Sequelize y,
+-- por lo tanto, el mismo en el que la API siempre envía y recibe los datos:
+-- id_compra, id_cliente, id_producto, cantidad, total, fecha.
 CREATE TABLE IF NOT EXISTS compra (
     id_compra SERIAL PRIMARY KEY,
     id_cliente INT NOT NULL REFERENCES cliente(id_cliente) ON DELETE CASCADE,
     id_producto INT NOT NULL REFERENCES producto(id_producto) ON DELETE CASCADE,
-    fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    cantidad INT NOT NULL CHECK (cantidad > 0)
+    cantidad INT NOT NULL CHECK (cantidad > 0),
+    total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
+    fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Inserción de al menos 5 registros por tabla
@@ -46,12 +50,13 @@ INSERT INTO producto (id_producto, nombre, precio, stock) VALUES
 ON CONFLICT (id_producto) DO NOTHING;
 
 -- Registros para compra
-INSERT INTO compra (id_compra, id_cliente, id_producto, fecha, cantidad) VALUES
-    (1, 1, 1, '2026-09-20 14:30:00', 1),
-    (2, 2, 2, '2026-09-21 10:15:00', 2),
-    (3, 3, 3, '2026-09-21 16:45:00', 1),
-    (4, 4, 4, '2026-09-22 11:20:00', 1),
-    (5, 5, 2, '2026-09-22 18:00:00', 3)
+-- total = precio del producto (al momento de la compra) x cantidad
+INSERT INTO compra (id_compra, id_cliente, id_producto, cantidad, total, fecha) VALUES
+    (1, 1, 1, 1, 180000.00, '2026-09-20 14:30:00'),
+    (2, 2, 2, 2, 130000.00, '2026-09-21 10:15:00'),
+    (3, 3, 3, 1, 920000.00, '2026-09-21 16:45:00'),
+    (4, 4, 4, 1, 250000.00, '2026-09-22 11:20:00'),
+    (5, 5, 2, 3, 195000.00, '2026-09-22 18:00:00')
 ON CONFLICT (id_compra) DO NOTHING;
 
 -- Sincronizar secuencias automáticas de IDs en PostgreSQL
