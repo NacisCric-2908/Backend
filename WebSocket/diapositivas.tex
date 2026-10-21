@@ -1,0 +1,705 @@
+% =====================================================================
+%  Presentación grupal: API WebSocket
+%  Juan Diego Grajales · Juan Pablo Sarmiento · Jan Sánchez
+%  Compilar en Overleaf con pdfLaTeX
+% =====================================================================
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,decorations.pathreplacing}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+
+% ---------------------------------------------------------------------
+%  Colores
+% ---------------------------------------------------------------------
+\definecolor{azul}{HTML}{1B2A41}
+\definecolor{acento}{HTML}{0FA3B1}
+\definecolor{naranja}{HTML}{F2A541}
+\definecolor{rojo}{HTML}{D1495B}
+\definecolor{verde}{HTML}{2A9D8F}
+\definecolor{gris}{HTML}{6C757D}
+\definecolor{fondo}{HTML}{F4F6F8}
+% Un color por expositor (se usa en la agenda)
+\colorlet{cJD}{acento}
+\colorlet{cJP}{naranja}
+\colorlet{cJan}{verde}
+
+% ---------------------------------------------------------------------
+%  Tema
+% ---------------------------------------------------------------------
+\usetheme{default}
+\setbeamercolor{frametitle}{fg=white,bg=azul}
+\setbeamercolor{structure}{fg=acento}
+\setbeamercolor{normal text}{fg=azul}
+\setbeamercolor{block title}{fg=white,bg=acento}
+\setbeamercolor{block body}{bg=fondo}
+\setbeamercolor{block title alerted}{fg=white,bg=rojo}
+\setbeamercolor{block body alerted}{bg=fondo}
+\setbeamercolor{block title example}{fg=white,bg=verde}
+\setbeamercolor{block body example}{bg=fondo}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize item}{\color{acento}$\blacktriangleright$}
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+
+% ---------------------------------------------------------------------
+%  Barra de progreso: muestra en qué bloque de la exposición vamos
+% ---------------------------------------------------------------------
+\newcommand{\bloqueactual}{0}
+\newcommand{\quienhabla}{}
+% \seccion{número del bloque}{quién expone}
+\newcommand{\seccion}[2]{\gdef\bloqueactual{#1}\gdef\quienhabla{#2}}
+
+\newcommand{\barraprogreso}{%
+  \ifnum\bloqueactual>0
+  \hbox to\textwidth{\hss\begin{tikzpicture}[x=\paperwidth/8]
+    \foreach \i/\n in {1/Contexto,2/Funcionamiento,3/Vocabulario,4/Pros y contras,
+                       5/Casos de uso,6/vs.\ REST,7/Demostración,8/Cierre}{
+      \ifnum\i=\bloqueactual
+        \def\relleno{acento}\def\texto{white}\def\grosor{\bfseries}
+      \else\ifnum\i<\bloqueactual
+        \def\relleno{azul!70!acento}\def\texto{white!80}\def\grosor{}
+      \else
+        \def\relleno{azul!88!white}\def\texto{white!45}\def\grosor{}
+      \fi\fi
+      \fill[\relleno] (\i-1,0) rectangle (\i,0.42);
+      \node[text=\texto,font=\tiny\grosor] at (\i-0.5,0.21) {\i.\ \n};
+    }
+  \end{tikzpicture}\hss}%
+  \fi}
+
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth,ht=2.8ex,dp=1.4ex,leftskip=1em]{frametitle}
+    \usebeamerfont{frametitle}\insertframetitle
+  \end{beamercolorbox}%
+  \nointerlineskip
+  \barraprogreso
+}
+
+\setbeamertemplate{footline}{%
+  \begin{beamercolorbox}[wd=\paperwidth,ht=2.4ex,dp=1ex]{frametitle}%
+    \hspace{1em}\scriptsize API WebSocket%
+    \hfill\scriptsize Expone: \textbf{\quienhabla}%
+    \hfill\scriptsize\insertframenumber/\inserttotalframenumber\hspace{1em}%
+  \end{beamercolorbox}%
+}
+
+% Mensaje clave al pie de una diapositiva
+\newcommand{\clave}[1]{%
+  \vfill
+  \begin{beamercolorbox}[wd=0.97\textwidth,sep=5pt,rounded=true]{block body}
+    \small\textcolor{acento}{\textbf{En una frase:}} #1
+  \end{beamercolorbox}}
+
+% ---------------------------------------------------------------------
+%  Código
+% ---------------------------------------------------------------------
+\lstdefinelanguage{JavaScript}{
+  keywords={const,let,var,function,return,if,else,for,of,new,import,from,
+            export,await,async,true,false,null,this},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  morestring=[b]`
+}
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{acento}\bfseries,
+  stringstyle=\color{rojo},
+  commentstyle=\color{gris}\itshape,
+  backgroundcolor=\color{fondo},
+  frame=single, rulecolor=\color{acento!40},
+  showstringspaces=false, columns=fullflexible, keepspaces=true, breaklines=true,
+  xleftmargin=4pt, xrightmargin=4pt, aboveskip=2pt, belowskip=2pt
+}
+
+% ---------------------------------------------------------------------
+%  Estilos TikZ
+% ---------------------------------------------------------------------
+\tikzset{
+  actor/.style={draw=azul,fill=fondo,rounded corners=3pt,minimum width=2.2cm,
+                minimum height=0.7cm,font=\small\bfseries},
+  tarjeta/.style={draw=#1,fill=#1!10,rounded corners=4pt,line width=0.8pt,
+                  text width=3.75cm,minimum height=2.1cm,align=left,inner sep=6pt,font=\footnotesize,
+                  execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  pregunta/.style={draw=azul,fill=fondo,rounded corners=3pt,text width=4.2cm,
+                   align=center,font=\scriptsize,inner sep=4pt},
+  resultado/.style={draw=#1,fill=#1!20,rounded corners=3pt,minimum width=2.1cm,
+                    align=center,font=\scriptsize\bfseries,inner sep=4pt},
+  linea/.style={draw=gris,dashed},
+  msg/.style={-{Stealth[length=2mm]},thick},
+  etq/.style={font=\scriptsize,fill=white,inner sep=1pt}
+}
+
+\begin{document}
+
+% =====================================================================
+%  PORTADA
+% =====================================================================
+\seccion{0}{Todos}
+\begin{frame}[plain]
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[azul] (current page.north west) rectangle ([yshift=-3.2cm]current page.north east);
+    \fill[acento] ([yshift=-3.2cm]current page.north west) rectangle ([yshift=-3.35cm]current page.north east);
+    \node[anchor=west,text=white,font=\Huge\bfseries] at ([xshift=1cm,yshift=-1.3cm]current page.north west) {API WebSocket};
+    \node[anchor=west,text=white!80!acento,font=\large] at ([xshift=1cm,yshift=-2.3cm]current page.north west) {Comunicación bidireccional y en tiempo real sobre una sola conexión};
+  \end{tikzpicture}
+  \vspace{2.2cm}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Integrantes}\\[2pt]
+      Juan Diego Grajales\\
+      Juan Pablo Sarmiento\\
+      Jan Sánchez\\[10pt]
+      {\small\color{gris}Estilos arquitectónicos de API · 2026}
+    \end{column}
+    \begin{column}{0.4\textwidth}
+      \centering
+      \begin{tikzpicture}
+        \node[actor] (c) at (0,0) {Cliente};
+        \node[actor] (s) at (3.2,0) {Servidor};
+        \draw[{Stealth}-{Stealth},ultra thick,acento] (c) -- node[above,font=\scriptsize]{ws://} (s);
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  AGENDA
+% =====================================================================
+\seccion{0}{Todos}
+\begin{frame}{Agenda: 20 minutos en 8 bloques}
+  \centering
+  % Barra de tiempo proporcional (0.68 cm por minuto)
+  \begin{tikzpicture}[x=0.68cm]
+    \foreach \ini/\fin/\num/\col in {0/2/1/cJD, 2/6/2/cJD, 6/8/3/cJP, 8/10/4/cJP,
+                                    10/12/5/cJP, 12/14/6/cJan, 14/19/7/cJan, 19/20/8/gris}{
+      \fill[\col!35,draw=white,line width=1.5pt] (\ini,0) rectangle (\fin,0.8);
+      \node[font=\small\bfseries] at ({(\ini+\fin)/2},0.4) {\num};
+    }
+    \foreach \m in {0,5,10,15,20}{
+      \draw[gris] (\m,-0.05) -- (\m,-0.18) node[below,font=\tiny]{\m\ min};
+    }
+  \end{tikzpicture}
+
+  \vspace{0.5cm}
+  \begin{columns}[T]
+    \begin{column}{0.31\textwidth}
+      \begin{beamercolorbox}[sep=5pt,rounded=true]{block body}
+        \textcolor{cJD}{\rule{8pt}{8pt}}\ \textbf{Juan Diego} {\color{gris}\scriptsize(6 min)}\\[3pt]
+        \small 1. Contexto\\ 2. Cómo funciona
+      \end{beamercolorbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{beamercolorbox}[sep=5pt,rounded=true]{block body}
+        \textcolor{cJP}{\rule{8pt}{8pt}}\ \textbf{Juan Pablo} {\color{gris}\scriptsize(6 min)}\\[3pt]
+        \small 3. Vocabulario clave\\ 4. Ventajas y desventajas\\ 5. Cuándo usarlo
+      \end{beamercolorbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{beamercolorbox}[sep=5pt,rounded=true]{block body}
+        \textcolor{cJan}{\rule{8pt}{8pt}}\ \textbf{Jan} {\color{gris}\scriptsize(7 min)}\\[3pt]
+        \small 6. Comparación con REST\\ 7. Demostración en vivo\\ {\color{gris}8. Cierre (todos, 1 min)}
+      \end{beamercolorbox}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 1 · CONTEXTO  (Juan Diego, 2 min)
+% =====================================================================
+\seccion{1}{Juan Diego}
+\begin{frame}{El problema: en HTTP el servidor no puede hablar primero}
+  \centering
+  \begin{tikzpicture}[scale=0.95,every node/.style={transform shape}]
+    % ---- Panel izquierdo: sondeo
+    \node[font=\small\bfseries,rojo] at (1.6,4.5) {Antes: sondeo (\emph{polling})};
+    \node[actor,minimum width=1.6cm] at (0,3.9) {Cliente};
+    \node[actor,minimum width=1.6cm] at (3.2,3.9) {Servidor};
+    \draw[linea] (0,3.55) -- (0,0); \draw[linea] (3.2,3.55) -- (3.2,0);
+    \foreach \y in {3.2,2.0,0.8}{
+      \draw[msg,gris] (0,\y) -- node[etq]{¿hay algo nuevo?} (3.2,\y-0.25);
+      \draw[msg,gris] (3.2,\y-0.45) -- node[etq]{no} (0,\y-0.7);
+    }
+    % ---- Panel derecho: WebSocket
+    \node[font=\small\bfseries,verde] at (8.1,4.5) {Con WebSocket};
+    \node[actor,minimum width=1.6cm] at (6.5,3.9) {Cliente};
+    \node[actor,minimum width=1.6cm] at (9.7,3.9) {Servidor};
+    \draw[linea] (6.5,3.55) -- (6.5,0); \draw[linea] (9.7,3.55) -- (9.7,0);
+    \draw[msg,azul] (6.5,3.2) -- node[etq]{abrir conexión} (9.7,2.95);
+    \fill[acento!15] (6.5,2.75) rectangle (9.7,0.05);
+    \node[font=\tiny,acento!70!azul,anchor=north east] at (9.65,2.72) {conexión abierta};
+    \draw[msg,acento] (9.7,2.3) -- node[etq]{¡llegó un mensaje!} (6.5,2.05);
+    \draw[msg,acento] (6.5,1.55) -- node[etq]{respuesta} (9.7,1.3);
+    \draw[msg,acento] (9.7,0.8) -- node[etq]{¡cambió un precio!} (6.5,0.55);
+    % ---- Separador
+    \draw[gris!40,thick] (4.85,4.7) -- (4.85,0);
+  \end{tikzpicture}
+
+  \vspace{0.1cm}
+  \begin{columns}[T]
+    \begin{column}{0.47\textwidth}
+      \small\centering\textcolor{rojo}{\textbf{Desperdicio:}} la mayoría de respuestas son “no”, y cada pregunta repite todas las cabeceras HTTP.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \small\centering\textcolor{verde}{\textbf{Solución:}} una conexión abierta por la que el servidor avisa en cuanto algo cambia.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{De un truco a un estándar: 2005 a 2018}
+  \centering
+  \begin{tikzpicture}[x=2.25cm]
+    \draw[very thick,acento,-{Stealth}] (0,0) -- (6.3,0);
+    \foreach \x/\anio/\texto in {
+      0.4/2005/{AJAX y \emph{Comet}:\\el sondeo como truco},
+      1.7/2008/{Ian Hickson y Michael Carter lo proponen en HTML5},
+      3.0/2009/{Chrome 4, primer navegador que lo soporta},
+      4.3/2011/{La IETF publica el RFC 6455: ya es estándar},
+      5.6/2018/{RFC 8441: WebSocket sobre HTTP/2}}{
+      \fill[azul] (\x,0) circle (4pt);
+      \node[above=6pt,font=\bfseries] at (\x,0) {\anio};
+      \node[below=6pt,font=\scriptsize,align=center,text width=2.3cm] at (\x,0) {\texto};
+    }
+  \end{tikzpicture}
+
+  \vspace{0.4cm}
+  \raggedright
+  \textbf{¿Quién lo impulsó?} Los equipos de navegadores (WHATWG) y luego la IETF.\\[3pt]
+  \textbf{¿Por qué así?} Empieza como una petición HTTP para usar los mismos puertos (80 y 443) y pasar por la infraestructura web existente.
+  \clave{WebSocket nació para que el navegador y el servidor puedan hablar en cualquier momento, sin trucos.}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 2 · CÓMO FUNCIONA  (Juan Diego, 4 min)
+% =====================================================================
+\seccion{2}{Juan Diego}
+\begin{frame}{WebSocket en tres preguntas}
+  \centering
+  \begin{tikzpicture}[node distance=0.45cm]
+    \node[tarjeta=acento,minimum height=3.3cm] (m) {%
+      {\normalsize\bfseries\color{acento}¿Cómo se comunican?}\\[4pt]
+      \textbf{Bidireccional simultáneo} (\emph{full-duplex}).\\[3pt]
+      Cualquiera de los dos envía cuando quiere. No hay petición y respuesta.};
+    \node[tarjeta=naranja,minimum height=3.3cm,right=of m] (p) {%
+      {\normalsize\bfseries\color{naranja!80!azul}¿Sobre qué protocolo?}\\[4pt]
+      Protocolo propio (\textbf{RFC 6455}) sobre \textbf{TCP}.\\[3pt]
+      \texttt{ws://} puerto 80\\
+      \texttt{wss://} puerto 443, cifrado con TLS};
+    \node[tarjeta=verde,minimum height=3.3cm,right=of p] (f) {%
+      {\normalsize\bfseries\color{verde}¿En qué formato?}\\[4pt]
+      Mensajes de \textbf{texto} (UTF-8, casi siempre JSON) o \textbf{binarios}.\\[3pt]
+      La aplicación decide qué significa cada mensaje.};
+  \end{tikzpicture}
+  \clave{una conexión TCP que se queda abierta y por la que viajan mensajes en ambos sentidos.}
+\end{frame}
+
+\begin{frame}{Ciclo de vida de una conexión (diagrama propio)}
+  \centering
+  \begin{tikzpicture}[y=0.82cm]
+    \node[actor] (c) at (0,0) {Cliente};
+    \node[actor] (s) at (6.6,0) {Servidor};
+    \draw[linea] (0,-0.45) -- (0,-7.3);
+    \draw[linea] (6.6,-0.45) -- (6.6,-7.3);
+    % Bandas de fases
+    \fill[naranja!18] (-0.05,-0.7) rectangle (6.65,-2.1);
+    \fill[acento!15]  (-0.05,-2.2) rectangle (6.65,-4.6);
+    \fill[verde!15]   (-0.05,-4.7) rectangle (6.65,-5.9);
+    \fill[rojo!15]    (-0.05,-6.0) rectangle (6.65,-7.2);
+    \node[anchor=east,font=\scriptsize\bfseries,align=right] at (-0.25,-1.4) {1. Apretón\\de manos};
+    \node[anchor=east,font=\scriptsize\bfseries,align=right] at (-0.25,-3.4) {2. Mensajes};
+    \node[anchor=east,font=\scriptsize\bfseries,align=right] at (-0.25,-5.3) {3. Latido};
+    \node[anchor=east,font=\scriptsize\bfseries,align=right] at (-0.25,-6.6) {4. Cierre};
+    % 1. Handshake
+    \draw[msg] (0,-1.0) -- node[etq]{GET + \texttt{Upgrade: websocket}} (6.6,-1.3);
+    \draw[msg] (6.6,-1.5) -- node[etq]{\texttt{101 Switching Protocols}} (0,-1.8);
+    % 2. Mensajes
+    \draw[msg,acento!80!azul] (0,-2.5) -- node[etq]{mensaje (JSON)} (6.6,-2.8);
+    \draw[msg,acento!80!azul] (6.6,-3.15) -- node[etq]{mensaje} (0,-3.45);
+    \draw[msg,acento!80!azul] (6.6,-3.9) -- node[etq]{mensaje que el servidor inicia} (0,-4.2);
+    % 3. Ping/pong
+    \draw[msg,verde] (6.6,-5.0) -- node[etq]{ping} (0,-5.2);
+    \draw[msg,verde] (0,-5.35) -- node[etq]{pong} (6.6,-5.55);
+    % 4. Close
+    \draw[msg,rojo] (0,-6.3) -- node[etq]{close} (6.6,-6.5);
+    \draw[msg,rojo] (6.6,-6.65) -- node[etq]{close} (0,-6.9);
+    % Nota lateral
+    \node[anchor=west,font=\scriptsize,text width=3.3cm,align=left] at (6.9,-1.4)
+      {Única parte en HTTP. Después, la misma conexión TCP cambia de protocolo.};
+    \node[anchor=west,font=\scriptsize,text width=3.3cm,align=left] at (6.9,-3.4)
+      {Cualquiera envía cuando quiere, sin esperar una pregunta.};
+    \node[anchor=west,font=\scriptsize,text width=3.3cm,align=left] at (6.9,-5.3)
+      {Comprueba que la conexión sigue viva.};
+    \node[anchor=west,font=\scriptsize,text width=3.3cm,align=left] at (6.9,-6.6)
+      {Cualquiera de los dos puede cerrarla.};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]{Fase 1: el apretón de manos convierte HTTP en WebSocket}
+  \begin{columns}[c]
+    \begin{column}{0.52\textwidth}
+\begin{lstlisting}[language={},title={\scriptsize\bfseries El cliente pide cambiar de protocolo}]
+GET /chat HTTP/1.1
+Host: localhost:8080
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+\end{lstlisting}
+\vspace{2pt}
+\begin{lstlisting}[language={},title={\scriptsize\bfseries El servidor acepta}]
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{itemize}\small
+        \item \texttt{Upgrade}: “quiero dejar de hablar HTTP”.
+        \item \textbf{101}: “aceptado”. Desde aquí ya no es HTTP.
+        \item \texttt{Sec-WebSocket-Accept}: la clave del cliente procesada con SHA-1. Prueba que el servidor de verdad entiende WebSocket.
+        \item La conexión TCP \textbf{no se cierra}: se reutiliza para todo lo demás.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Fase 2: cada mensaje viaja en tramas (\emph{frames}) muy livianas}
+  \centering
+  \begin{tikzpicture}[x=0.255cm,y=0.9cm]
+    \foreach \a/\b/\t/\c in {0/2/FIN/naranja!35, 2/5/RSV/gris!25, 5/10/opcode/acento!35,
+                            10/12/M/rojo!35, 12/18/longitud/verde!35, 18/32/longitud extra/verde!15,
+                            32/45/clave de máscara/rojo!15}{
+      \draw[fill=\c,draw=azul] (\a,0) rectangle (\b,1);
+      \node[font=\tiny,align=center] at ({(\a+\b)/2},0.5) {\t};
+    }
+    \draw[fill=fondo,draw=azul] (45,0) rectangle (56,1);
+    \node[font=\scriptsize] at (50.5,0.5) {datos (el mensaje)};
+    \draw[decorate,decoration={brace,amplitude=4pt,mirror},thick] (0,-0.1) -- (18,-0.1)
+      node[midway,below=4pt,font=\scriptsize]{siempre: 2 bytes};
+    \draw[decorate,decoration={brace,amplitude=4pt,mirror},thick] (18,-0.1) -- (45,-0.1)
+      node[midway,below=4pt,font=\scriptsize]{solo si hace falta};
+  \end{tikzpicture}
+
+  \vspace{0.35cm}
+  \begin{columns}[T]
+    \begin{column}{0.42\textwidth}
+      \small
+      \textbf{El \emph{opcode} dice qué tipo de trama es}\\[3pt]
+      \begin{tabular}{ll}
+        \texttt{0x1} & texto \\
+        \texttt{0x2} & binario \\
+        \texttt{0x8} & cierre \\
+        \texttt{0x9} / \texttt{0xA} & ping / pong
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.54\textwidth}
+      \small
+      \begin{itemize}
+        \item \textbf{FIN}: marca la última trama de un mensaje grande.
+        \item \textbf{M} (máscara): lo que envía el cliente va enmascarado para no confundir a los proxies.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \clave{la cabecera ocupa entre 2 y 14 bytes; una petición HTTP suele cargar cientos.}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 3 · VOCABULARIO  (Juan Pablo, 2 min)
+% =====================================================================
+\seccion{3}{Juan Pablo}
+\begin{frame}{Vocabulario clave: seis términos que ya vimos}
+  \centering
+  \begin{tikzpicture}[node distance=0.3cm and 0.35cm]
+    \node[tarjeta=acento,minimum height=1.9cm] (t1)
+      {{\bfseries\color{acento}Handshake} · \emph{apretón de manos}\\[2pt]
+       Petición HTTP inicial con la que ambos acuerdan pasar a WebSocket.};
+    \node[tarjeta=acento,minimum height=1.9cm,right=of t1] (t2)
+      {{\bfseries\color{acento}Full-duplex} · \emph{bidireccional simultáneo}\\[2pt]
+       Los dos extremos envían al mismo tiempo, como en una llamada telefónica.};
+    \node[tarjeta=acento,minimum height=1.9cm,right=of t2] (t3)
+      {{\bfseries\color{acento}Frame} · \emph{trama}\\[2pt]
+       Unidad mínima que viaja por la conexión. Una o varias forman un mensaje.};
+    \node[tarjeta=naranja,minimum height=1.9cm,below=of t1] (t4)
+      {{\bfseries\color{naranja!80!azul}Opcode} · \emph{código de operación}\\[2pt]
+       Indica si la trama es texto, binario, cierre o latido.};
+    \node[tarjeta=naranja,minimum height=1.9cm,right=of t4] (t5)
+      {{\bfseries\color{naranja!80!azul}Ping / Pong} · \emph{latido}\\[2pt]
+       Tramas de control para saber si la otra parte sigue conectada.};
+    \node[tarjeta=naranja,minimum height=1.9cm,right=of t5] (t6)
+      {{\bfseries\color{naranja!80!azul}Subprotocol} · \emph{subprotocolo}\\[2pt]
+       Acuerdo sobre el formato de los mensajes (por ejemplo, STOMP), negociado en el apretón de manos.};
+  \end{tikzpicture}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 4 · VENTAJAS Y DESVENTAJAS  (Juan Pablo, 2 min)
+% =====================================================================
+\seccion{4}{Juan Pablo}
+\begin{frame}{Ventajas y desventajas}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Ventajas}
+        \small
+        \textbf{1. Baja latencia}\\
+        {\footnotesize\color{gris}Ej.: un precio de bolsa se actualiza en milisegundos.}\\[2pt]
+        \textbf{2. El servidor puede hablar primero}\\
+        {\footnotesize\color{gris}Ej.: aviso de “nuevo mensaje” sin recargar la página.}\\[2pt]
+        \textbf{3. Poca sobrecarga por mensaje}\\
+        {\footnotesize\color{gris}Ej.: un juego que envía 30 posiciones por segundo.}\\[2pt]
+        \textbf{4. Soporte nativo en navegadores}\\
+        {\footnotesize\color{gris}Ej.: basta \texttt{new WebSocket(url)}, sin librerías.}
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{Desventajas}
+        \small
+        \textbf{1. Conexiones con estado: difícil de escalar}\\
+        {\footnotesize\color{gris}Ej.: A en el servidor 1 no ve a B en el servidor 2 sin un bus como Redis.}\\[2pt]
+        \textbf{2. Sin reconexión ni entrega garantizada}\\
+        {\footnotesize\color{gris}Ej.: un túnel del metro corta el chat y hay que reconectar a mano.}\\[2pt]
+        \textbf{3. Sin caché ni reglas estándar}\\
+        {\footnotesize\color{gris}Ej.: no hay verbos como GET o POST; el formato lo inventa uno.}\\[2pt]
+        \textbf{4. Proxies y cortafuegos}\\
+        {\footnotesize\color{gris}Ej.: redes corporativas que cortan conexiones largas.}
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 5 · CUÁNDO USARLO  (Juan Pablo, 2 min)
+% =====================================================================
+\seccion{5}{Juan Pablo}
+\begin{frame}{¿Quién lo usa y para qué?}
+  \small
+  \renewcommand{\arraystretch}{1.5}
+  \begin{tabularx}{\textwidth}{>{\bfseries}l X}
+    \toprule
+    Empresa & Qué viaja por WebSocket \\
+    \midrule
+    Discord & Su \emph{Gateway} entrega mensajes, presencia (“en línea”) y eventos de los servidores a cada cliente y bot. \\
+    Slack & Con \emph{Socket Mode}, las apps reciben eventos sin exponer una URL pública. \\
+    Binance & Flujos de precios, órdenes y operaciones del mercado en tiempo real. \\
+    Figma & Los cambios de cada persona en un diseño compartido, al instante. \\
+    \bottomrule
+  \end{tabularx}
+  \clave{todos tienen muchos eventos pequeños y frecuentes, donde un segundo de retraso arruina la experiencia.}
+\end{frame}
+
+\begin{frame}{¿Cuándo \textbf{no} usarlo?}
+  \begin{columns}[c]
+    \begin{column}{0.6\textwidth}
+      \centering
+      \begin{tikzpicture}[node distance=0.55cm]
+        \node[pregunta] (q1) {¿El servidor necesita enviar datos \textbf{sin que le pregunten}?};
+        \node[pregunta,below=of q1] (q2) {¿Los mensajes van en \textbf{ambas direcciones}?};
+        \node[pregunta,below=of q2] (q3) {¿Los clientes tienen una \textbf{conexión estable}?};
+        \node[resultado=acento,below=of q3] (ws) {WebSocket};
+        \node[resultado=naranja,right=0.6cm of q1] (rest) {REST};
+        \node[resultado=gris,right=0.6cm of q2] (sse) {SSE};
+        \node[resultado=verde,right=0.6cm of q3] (mqtt) {MQTT};
+        \draw[msg] (q1) -- node[etq,right]{sí} (q2);
+        \draw[msg] (q2) -- node[etq,right]{sí} (q3);
+        \draw[msg] (q3) -- node[etq,right]{sí} (ws);
+        \draw[msg] (q1) -- node[etq,above]{no} (rest);
+        \draw[msg] (q2) -- node[etq,above]{no} (sse);
+        \draw[msg] (q3) -- node[etq,above]{no} (mqtt);
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.37\textwidth}
+      \begin{alertblock}{Mal caso: catálogo de productos}
+        \small Los usuarios consultan de vez en cuando y los datos casi no cambian.\\[3pt]
+        Con WebSocket se paga una conexión abierta por usuario \textbf{sin ningún beneficio}, y se pierden la caché y la simplicidad de REST.
+      \end{alertblock}
+      \vspace{2pt}
+      {\scriptsize\color{gris} SSE: el servidor envía en un solo sentido. MQTT: mensajería para dispositivos con red inestable.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 6 · COMPARACIÓN CON REST  (Jan, 2 min)
+% =====================================================================
+\seccion{6}{Jan}
+\begin{frame}{WebSocket frente a REST}
+  \small
+  \renewcommand{\arraystretch}{1.12}
+  \begin{tabularx}{\textwidth}{>{\bfseries}l X X}
+    \toprule
+     & \textcolor{acento}{WebSocket} & \textcolor{naranja!85!azul}{REST} \\
+    \midrule
+    Modelo & Mensajes en ambas direcciones & Petición y respuesta \\
+    Quién inicia & Cliente o servidor & Siempre el cliente \\
+    Conexión & Una, persistente y con estado & Una por petición, sin estado \\
+    Sobrecarga & 2 a 14 bytes por mensaje & Cabeceras HTTP completas \\
+    Caché & No existe & Nativa de HTTP y de las CDN \\
+    Contrato & Libre; se describe con AsyncAPI & Verbos, URLs y OpenAPI \\
+    Escalar & Difícil: conexiones abiertas & Fácil: balanceo simple \\
+    \bottomrule
+  \end{tabularx}
+
+  \vspace{0.15cm}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Se gana}
+        \small Tiempo real, envío desde el servidor y menos tráfico.
+      \end{exampleblock}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{alertblock}{Se pierde}
+        \small Simplicidad, caché, herramientas estándar y escalado fácil.
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 7 · DEMOSTRACIÓN  (Jan, 5 min)
+% =====================================================================
+\seccion{7}{Jan}
+\begin{frame}{Nuestra demo: un mini chat (diagrama propio)}
+  \centering
+  \begin{tikzpicture}
+    % Servidor con sus dos partes
+    \node[draw=azul,fill=acento!8,rounded corners=4pt,minimum width=5.4cm,minimum height=3.4cm] (srv) at (0,-0.3) {};
+    \node[font=\scriptsize\bfseries,anchor=north] at ([yshift=-2pt]srv.north) {Servidor Node.js · puerto \texttt{\$PORT}};
+    \node[actor,minimum width=4.6cm,fill=white,align=center] (http) at (0,0.35)
+      {HTTP\\[-1pt]{\scriptsize\normalfont entrega \texttt{index.html}}};
+    \node[actor,minimum width=4.6cm,fill=white,align=center] (wsk) at (0,-1.05)
+      {WebSocket (\texttt{ws})\\[-1pt]{\scriptsize\normalfont reenvía a todos los conectados}};
+    % Clientes
+    \node[actor,align=center] (a) at (-6.2,0.7) {Cliente A\\[-1pt]{\scriptsize\normalfont navegador}};
+    \node[actor,align=center] (b) at (-6.2,-1.4) {Cliente B\\[-1pt]{\scriptsize\normalfont navegador}};
+    % Flechas
+    \draw[msg,dashed,gris] (a.east) -- node[etq,above,sloped]{1. GET /} (http.west);
+    \draw[{Stealth}-{Stealth},thick,acento] (a.south east) -- node[etq,below,sloped,pos=0.45]{2. ws://} (wsk.west);
+    \draw[{Stealth}-{Stealth},thick,acento] (b.east) -- node[etq,below,sloped]{2. ws://} (wsk.west);
+    % Pasos
+    \node[anchor=west,font=\small,text width=3.6cm,align=left] at (3.0,-0.3)
+      {\textbf{1.} El navegador descarga la página por HTTP.\\[4pt]
+       \textbf{2.} Abre un WebSocket \textbf{al mismo puerto}.\\[4pt]
+       \textbf{3.} Lo que escribe A le llega a B al instante.};
+  \end{tikzpicture}
+  \clave{cliente y servidor en procesos separados, con una única conexión abierta por navegador.}
+\end{frame}
+
+\begin{frame}{Demostración en vivo: qué vamos a ver}
+  \small
+  \renewcommand{\arraystretch}{1.45}
+  \begin{tabularx}{\textwidth}{c l X}
+    \toprule
+    & \textbf{Qué hacemos} & \textbf{Qué demuestra} \\
+    \midrule
+    1 & Arrancar el servidor: \texttt{npm start} & Servidor y clientes son procesos separados \\
+    2 & Abrir dos navegadores & Ambos reciben “Hola mundo!”: \textbf{el servidor habla primero} \\
+    3 & Escribir en A & Aparece al instante en B: \textbf{bidireccional, sin recargar} \\
+    4 & \emph{DevTools} $\rightarrow$ Red $\rightarrow$ WS & Una sola petición \textbf{101} y tramas subiendo y bajando: \textbf{no hay sondeo} \\
+    5 & Apagar el servidor & Los clientes reciben \texttt{close}: la conexión tiene estado \\
+    \bottomrule
+  \end{tabularx}
+\end{frame}
+
+\begin{frame}[fragile]{El código esencial}
+  \begin{columns}[T]
+    \begin{column}{0.57\textwidth}
+\begin{lstlisting}[language=JavaScript,title={\scriptsize\bfseries server.js (proceso 1)}]
+import { WebSocketServer, WebSocket } from 'ws';
+import 'dotenv/config';
+import http from 'node:http';
+const PORT = Number(process.env.PORT);
+const servidorHttp = http.createServer(/* ... */);
+const wss = new WebSocketServer(
+  { server: servidorHttp }); // mismo puerto
+wss.on('connection', (socket) => {
+  socket.send(JSON.stringify(
+    { autor: 'servidor', texto: 'Hola mundo!' }));
+  socket.on('message', (data) => {
+    for (const c of wss.clients) { // broadcast
+      if (c.readyState === WebSocket.OPEN)
+        c.send(data.toString());
+    }
+  });
+});
+servidorHttp.listen(PORT);
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.41\textwidth}
+\begin{lstlisting}[language=JavaScript,title={\scriptsize\bfseries index.html (procesos 2 y 3)}]
+const ws = new WebSocket(WS_URL);
+ws.onmessage = (e) => mostrar(JSON.parse(e.data));
+boton.onclick = () =>
+  ws.send(JSON.stringify({ autor, texto }));
+\end{lstlisting}
+\begin{lstlisting}[language={},title={\scriptsize\bfseries .env.example}]
+PORT=8080
+WS_URL=ws://localhost:8080
+\end{lstlisting}
+      \vspace{2pt}
+      \begin{itemize}\scriptsize\setlength{\itemsep}{0pt}
+        \item \texttt{on('connection')}: alguien abrió un WebSocket.
+        \item \texttt{on('message')}: llegó una trama; se reenvía a todos.
+        \item \texttt{onmessage}: el navegador muestra lo que llega.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% =====================================================================
+%  BLOQUE 8 · CIERRE  (Todos, 1 min)
+% =====================================================================
+\seccion{8}{Todos}
+\begin{frame}{Tres ideas para llevarse}
+  \centering
+  \begin{tikzpicture}[node distance=0.4cm]
+    \node[tarjeta=acento,minimum height=3.2cm,align=center] (i1)
+      {{\LARGE\bfseries\color{acento}1}\\[4pt]\small Es \textbf{una conexión persistente y bidireccional} que nace como HTTP y luego cambia de protocolo.};
+    \node[tarjeta=naranja,minimum height=3.2cm,align=center,right=of i1] (i2)
+      {{\LARGE\bfseries\color{naranja!80!azul}2}\\[4pt]\small Brilla cuando el \textbf{servidor necesita hablar primero} y con frecuencia: chats, juegos, mercados.};
+    \node[tarjeta=rojo,minimum height=3.2cm,align=center,right=of i2] (i3)
+      {{\LARGE\bfseries\color{rojo}3}\\[4pt]\small La complejidad pasa a nosotros: \textbf{reconexión, escalado y formato} de los mensajes.};
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Fuentes consultadas}
+  \scriptsize
+  \textbf{Especificaciones}
+  \begin{itemize}
+    \item IETF. \emph{RFC 6455: The WebSocket Protocol} (2011). \url{https://datatracker.ietf.org/doc/html/rfc6455}
+    \item IETF. \emph{RFC 8441: Bootstrapping WebSockets with HTTP/2} (2018). \url{https://datatracker.ietf.org/doc/html/rfc8441}
+    \item WHATWG. \emph{WebSockets Standard}. \url{https://websockets.spec.whatwg.org}
+  \end{itemize}
+  \textbf{Documentación técnica}
+  \begin{itemize}
+    \item MDN Web Docs. \emph{API de WebSockets}. \url{https://developer.mozilla.org/es/docs/Web/API/WebSockets_API}
+    \item Librería \texttt{ws} para Node.js. \url{https://github.com/websockets/ws}
+  \end{itemize}
+  \textbf{Casos de uso}
+  \begin{itemize}
+    \item Discord Developer Docs. \emph{Gateway}. \url{https://discord.com/developers/docs/events/gateway}
+    \item Slack API. \emph{Socket Mode}. \url{https://api.slack.com/apis/socket-mode}
+    \item Binance. \emph{WebSocket Streams}. \url{https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams}
+    \item Figma Blog. \emph{How Figma’s multiplayer technology works}. \url{https://www.figma.com/blog/how-figmas-multiplayer-technology-works/}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[plain,c]
+  \begin{center}
+    {\Huge\bfseries\color{acento} ¿Preguntas?\par}
+    \vspace{0.5cm}
+    {\large Juan Diego Grajales · Juan Pablo Sarmiento · Jan Sánchez\par}
+  \end{center}
+\end{frame}
+
+\end{document}
