@@ -1,0 +1,65 @@
+services:
+    cliente-api:
+        build:
+            context: ./cliente-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - "${CLIENTE_PORT:-3001}:3001"
+        env_file:
+            - ./cliente-api/.env
+        environment:
+            - DB_HOST=${DB_HOST:-172.16.0.5}
+            - DB_PORT=${DB_PORT:-5432}
+            - DB_NAME=${DB_NAME:-taller2_db}
+            - DB_USER=${DB_USER:-api_user}
+            - DB_PASSWORD=${DB_PASSWORD:-postgres}
+            - PORT=3001
+        volumes:
+            - ./cliente-api:/app:Z
+            - /app/node_modules
+        restart: unless-stopped
+
+    producto-api:
+        build:
+            context: ./producto-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - "${PRODUCTO_PORT:-3002}:3002"
+        env_file:
+            - ./producto-api/.env
+        environment:
+            - DB_HOST=${DB_HOST:-172.16.0.5}
+            - DB_PORT=${DB_PORT:-5432}
+            - DB_NAME=${DB_NAME:-taller2_db}
+            - DB_USER=${DB_USER:-api_user}
+            - DB_PASSWORD=${DB_PASSWORD:-postgres}
+            - PORT=3002
+        volumes:
+            - ./producto-api:/app:Z
+            - /app/node_modules
+        restart: unless-stopped
+
+    compra-api:
+        build:
+            context: ./compra-api
+            dockerfile: dockerfile
+            target: development
+        ports:
+            - "${COMPRA_PORT:-3003}:3003"
+        env_file:
+            - ./compra-api/.env
+        environment:
+            - DB_HOST=${DB_HOST:-172.16.0.5}
+            - DB_PORT=${DB_PORT:-5432}
+            - DB_NAME=${DB_NAME:-taller2_db}
+            - DB_USER=${DB_USER:-api_user}
+            - DB_PASSWORD=${DB_PASSWORD:-postgres}
+            - CLIENTE_API_URL=http://cliente-api:3001
+            - PRODUCTO_API_URL=http://producto-api:3002
+            - PORT=3003
+        volumes:
+            - ./compra-api:/app:Z
+            - /app/node_modules
+        restart: unless-stopped
