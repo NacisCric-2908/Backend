@@ -11,6 +11,7 @@ Todo el sistema está pensado para funcionar **100% contenerizado**: no se neces
 2. [Estructura del Proyecto](#2-estructura-del-proyecto)
 3. [Explicación Detallada de Archivos y Código](#3-explicación-detallada-de-archivos-y-código)
    - [Base de Datos e Inicialización (`init.sql`)](#31-base-de-datos-e-inicialización-initsql)
+     - [Alternativa sin `init.sql`: ¿Dónde y cómo se crearía la base de datos?](#alternativa-sin-initsql-dónde-y-cómo-se-crearía-la-base-de-datos)
    - [Capa de Conexión y Configuración (`config/database.js`)](#32-capa-de-conexión-y-configuración-configdatabasejs)
    - [Modelos ORM con Sequelize (`models/`)](#33-modelos-orm-con-sequelize-models)
    - [Controladores y Lógica de Negocio (`controllers/`)](#34-controladores-y-lógica-de-negocio-controllers)
@@ -31,6 +32,7 @@ Todo el sistema está pensado para funcionar **100% contenerizado**: no se neces
 9. [Equivalencia con comandos cURL](#9-equivalencia-con-comandos-curl)
 10. [Solución de Problemas Comunes (Troubleshooting)](#10-solución-de-problemas-comunes-troubleshooting)
 11. [Persistencia de Datos y Comandos Útiles de Docker](#11-persistencia-de-datos-y-comandos-útiles-de-docker)
+    - [Aislamiento de Volúmenes y Git entre Desarrolladores](#aislamiento-de-volúmenes-y-git-entre-desarrolladores)
 
 ---
 
@@ -178,6 +180,29 @@ CREATE TABLE IF NOT EXISTS compra (
 - Las columnas de `compra` siguen siempre el mismo orden: **`id_compra, id_cliente, id_producto, cantidad, total, fecha`**. Ese mismo orden se repite en el modelo de Sequelize y, por lo tanto, en las respuestas JSON de la API: lo que se envía y lo que se recibe siempre se lee en el mismo orden.
 - `total` guarda el monto calculado al momento de la compra (`precio del producto × cantidad`), así que no hace falta volver a calcularlo ni consultar `producto-api` para mostrarlo en un `GET`.
 - Después de los `INSERT` de las 5 filas semilla por tabla, `setval(...)` sincroniza las secuencias (`cliente_id_cliente_seq`, etc.) con el máximo ID insertado manualmente, para que el próximo `INSERT` automático (vía Sequelize) no choque con un ID ya usado.
+
+#### Alternativa sin `init.sql`: ¿Dónde y cómo se crearía la base de datos?
+
+Si en este proyecto se prescindiera por completo del archivo `init.sql`, el sistema seguiría siendo capaz de funcionar y crear su estructura, dividiéndose la responsabilidad en tres partes:
+
+1. **La base de datos física (`taller2_db`):**
+   - **¿Quién la crea?:** El contenedor oficial de PostgreSQL (`postgres:17-alpine`).
+   - **¿Cómo?:** A través de la variable de entorno `POSTGRES_DB=${DB_NAME:-taller2_db}` configurada en `docker-compose.yml`. El script interno del contenedor (`docker-entrypoint.sh`), al notar que el volumen de datos está vacío, ejecuta automáticamente `CREATE DATABASE taller2_db;` y crea el usuario configurado.
+
+2. **Las tablas y columnas (`cliente`, `producto`, `compra`):**
+   - **¿Quién las crea?:** **Sequelize (ORM)** desde el código Node.js de cada microservicio.
+   - **¿Cómo?:** Al arrancar cada API en `src/server.js` se invoca:
+     ```javascript
+     await sequelize.sync({ alter: true });
+     ```
+     Sequelize lee las definiciones en JavaScript de cada modelo (`models/cliente.js`, `models/producto.js`, `models/compra.js`) y genera y envía automáticamente a PostgreSQL las sentencias `CREATE TABLE IF NOT EXISTS` con sus tipos de datos, llaves primarias y restricciones.
+
+3. **Los datos iniciales (semillas / seed data):**
+   - Sin `init.sql`, PostgreSQL arrancaría con las tablas vacías (0 registros).
+   - Para poblar la base de datos en ese escenario, se acostumbra recurrir a:
+     - **Seeders de Sequelize:** archivos de semillas ejecutados mediante la CLI (`npx sequelize-cli db:seed:all`) o scripts con `bulkCreate`.
+     - **Peticiones HTTP vía API:** ejecutando peticiones `POST` a `/clientes`, `/productos` y `/compras` desde Postman o scripts cURL.
+     - **Sembrado en código:** verificando al inicio si las tablas están vacías (`count() === 0`) e insertando los registros predeterminados.
 
 ### 3.2 Capa de Conexión y Configuración (`config/database.js`)
 
@@ -1018,3 +1043,32 @@ docker compose down -v
 # Reconstruir imágenes tras hacer cambios en el código
 docker compose up -d --build
 ```
+
+---
+
+### Aislamiento de Volúmenes y Git entre Desarrolladores
+
+Una duda habitual en equipos de desarrollo es:  
+*¿Qué impide que dos programadores hagan pruebas insertando y eliminando datos y que al hacer `git push` o `git pull` surjan conflictos de sincronización en la base de datos de Docker?*
+
+1. **Los volúmenes de Docker son 100% locales e independientes en cada máquina:**
+   - El volumen nombrado `pgdata` se guarda en el almacenamiento local del sistema operativo de cada desarrollador (en Linux, bajo `/var/lib/docker/volumes/...`).
+   - Ni Docker ni Git envían estos archivos a ningún servidor remoto.
+
+2. **Git solo versiona código fuente y texto plano, nunca datos:**
+   - Git rastrea archivos de código (`.js`, `.json`), configuraciones (`docker-compose.yml`) y scripts de definición (`init.sql`).
+   - Las carpetas internas de Docker y los archivos binarios donde PostgreSQL guarda los registros **no forman parte del árbol de trabajo de Git**.
+
+3. **Independencia en pruebas locales (DML):**
+   - Puedes crear, editar o borrar clientes, productos o compras libremente durante tus pruebas locales.
+   - Cuando ejecutas `git push`, subes únicamente tus commits de código fuente.
+   - Cuando tu compañero ejecuta `git pull`, actualiza sus archivos de código, pero su base de datos local y su volumen de datos permanecen exactamente como los tenía, sin sobrescribirse.
+
+4. **¿Cuándo sí puede haber diferencias y cómo se resuelven? (Cambios de esquema / DDL):**
+   - Si un desarrollador cambia la estructura de la base de datos (por ejemplo, agrega un nuevo campo obligatorio o modifica un tipo en los modelos de Sequelize o en `init.sql`), el otro desarrollador al hacer `git pull` recibirá el nuevo código, pero su volumen local tendrá la tabla con la estructura previa.
+   - Para actualizar la base de datos local al nuevo esquema en desarrollo, basta con reiniciar el volumen:
+     ```bash
+     docker compose down -v
+     docker compose up -d
+     ```
+   - En entornos empresariales o de producción, este desfase se maneja mediante **migraciones de base de datos** (con Sequelize CLI o Flyway), que aplican scripts incrementales para actualizar las columnas sin tener que borrar el volumen ni perder información.
